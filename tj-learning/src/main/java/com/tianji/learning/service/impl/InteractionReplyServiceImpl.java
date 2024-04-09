@@ -3,7 +3,7 @@ package com.tianji.learning.service.impl;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tianji.learning.domain.po.InteractionReply;
 import com.tianji.learning.mapper.InteractionReplyMapper;
-import com.tianji.learning.service.InteractionReplyService;
+import com.tianji.learning.service.IInteractionReplyService;
 import org.springframework.stereotype.Service;
 
 /**
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class InteractionReplyServiceImpl extends ServiceImpl<InteractionReplyMapper, InteractionReply>
-        implements InteractionReplyService {
+        implements IInteractionReplyService {
 
 }
 

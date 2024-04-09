@@ -18,8 +18,8 @@ import com.tianji.learning.domain.po.InteractionReply;
 import com.tianji.learning.domain.query.QuestionPageQuery;
 import com.tianji.learning.domain.vo.QuestionVO;
 import com.tianji.learning.mapper.InteractionQuestionMapper;
-import com.tianji.learning.service.InteractionQuestionService;
-import com.tianji.learning.service.InteractionReplyService;
+import com.tianji.learning.service.IInteractionQuestionService;
+import com.tianji.learning.service.IInteractionReplyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -35,10 +35,10 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class InteractionQuestionServiceImpl extends ServiceImpl<InteractionQuestionMapper, InteractionQuestion>
-        implements InteractionQuestionService {
+        implements IInteractionQuestionService {
 
     private final UserClient userClient;
-    private final InteractionReplyService replyService;
+    private final IInteractionReplyService replyService;
 
     @Override
     public void saveQuestion(QuestionFormDTO dto) {
@@ -141,6 +141,7 @@ public class InteractionQuestionServiceImpl extends ServiceImpl<InteractionQuest
                 }
                 questionVO.setLatestReplyContent(reply.getContent());
             }
+            voList.add(questionVO);
         }
 
         return PageDTO.of(page, voList);
