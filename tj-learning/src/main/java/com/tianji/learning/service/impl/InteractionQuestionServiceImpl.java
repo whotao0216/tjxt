@@ -4,10 +4,17 @@ import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tianji.api.cache.CategoryCache;
+import com.tianji.api.client.course.CatalogueClient;
+import com.tianji.api.client.course.CourseClient;
+import com.tianji.api.client.search.SearchClient;
 import com.tianji.api.client.user.UserClient;
+import com.tianji.api.dto.course.CataSimpleInfoDTO;
+import com.tianji.api.dto.course.CourseSimpleInfoDTO;
 import com.tianji.api.dto.user.UserDTO;
 import com.tianji.common.domain.dto.PageDTO;
 import com.tianji.common.exceptions.BadRequestException;
+import com.tianji.common.exceptions.BizIllegalException;
 import com.tianji.common.utils.BeanUtils;
 import com.tianji.common.utils.CollUtils;
 import com.tianji.common.utils.StringUtils;
@@ -15,7 +22,9 @@ import com.tianji.common.utils.UserContext;
 import com.tianji.learning.domain.dto.QuestionFormDTO;
 import com.tianji.learning.domain.po.InteractionQuestion;
 import com.tianji.learning.domain.po.InteractionReply;
+import com.tianji.learning.domain.query.QuestionAdminPageQuery;
 import com.tianji.learning.domain.query.QuestionPageQuery;
+import com.tianji.learning.domain.vo.QuestionAdminVO;
 import com.tianji.learning.domain.vo.QuestionVO;
 import com.tianji.learning.mapper.InteractionQuestionMapper;
 import com.tianji.learning.service.IInteractionQuestionService;
@@ -39,6 +48,10 @@ public class InteractionQuestionServiceImpl extends ServiceImpl<InteractionQuest
 
     private final UserClient userClient;
     private final IInteractionReplyService replyService;
+    private final CourseClient courseClient;
+    private final SearchClient searchClient;
+    private final CatalogueClient catalogueClient;
+    private final CategoryCache categoryCache;
 
     @Override
     public void saveQuestion(QuestionFormDTO dto) {
@@ -147,9 +160,98 @@ public class InteractionQuestionServiceImpl extends ServiceImpl<InteractionQuest
         return PageDTO.of(page, voList);
     }
 
+    @Override
+    public QuestionVO queryQuestionById(Long id) {
+        InteractionQuestion question = getById(id);
+        if (question == null) throw new BadRequestException("问题不存在");
+        if (question.getHidden()) {
+            return null;
+        }
+        QuestionVO questionVO = BeanUtils.copyBean(question, QuestionVO.class);
+        if (!question.getAnonymity()) {
+            UserDTO userDTO = userClient.queryUserById(question.getUserId());
+            questionVO.setUserIcon(userDTO.getIcon());
+            questionVO.setUserName(userDTO.getName());
+        }
+        return questionVO;
+    }
+
+    @Override
+    public PageDTO<QuestionAdminVO> queryQuestionAdminVOPage(QuestionAdminPageQuery query) {
+        //从es中获取课程的课程id
+        String courseName = query.getCourseName();
+        List<Long> cids = new ArrayList<>();
+        if (StringUtils.isNotBlank(courseName)) {
+            cids = searchClient.queryCoursesIdByName(courseName);
+            if (CollUtils.isEmpty(cids)) {
+                return PageDTO.empty(0L, 0L);
+            }
+        }
+
+        //分页查询互动问题表 根据前端条件查询
+        Page<InteractionQuestion> page = lambdaQuery()
+                .in(CollUtils.isNotEmpty(cids), InteractionQuestion::getCourseId, cids)
+                .eq(query.getStatus() != null, InteractionQuestion::getStatus, query.getStatus())
+                .between(query.getBeginTime() != null && query.getEndTime() != null,
+                        InteractionQuestion::getCreateTime, query.getBeginTime(), query.getEndTime())
+                .page(query.toMpPageDefaultSortByCreateTimeDesc());
+        List<InteractionQuestion> records = page.getRecords();
+        if (CollUtils.isEmpty(records)) return PageDTO.empty(0L, 0L);
+
+        Set<Long> uids = new HashSet<>();//userid set
+        Set<Long> courseIds = new HashSet<>();
+        Set<Long> chapterAndSectionIds = new HashSet<>();//章和节的id集合
+
+        for (InteractionQuestion record : records) {
+            uids.add(record.getUserId());
+            courseIds.add(record.getCourseId());
+            chapterAndSectionIds.add(record.getChapterId());
+            chapterAndSectionIds.add(record.getSectionId());
+        }
+        //get users information
+        List<UserDTO> userDTOS = userClient.queryUserByIds(uids);
+        if (CollUtils.isEmpty(userDTOS)) {
+            throw new BizIllegalException("用户不存在");
+        }
+        Map<Long, UserDTO> userDTOMap = userDTOS.stream().collect(Collectors.toMap(UserDTO::getId, c -> c));
+
+        //get course information
+        List<CourseSimpleInfoDTO> simpleInfoList = courseClient.getSimpleInfoList(courseIds);
+        if (CollUtils.isEmpty(simpleInfoList)) {
+            throw new BizIllegalException("课程不存在");
+        }
+        Map<Long, CourseSimpleInfoDTO> cInfoMap = simpleInfoList.stream().collect(Collectors.toMap(CourseSimpleInfoDTO::getId, c -> c));
+
+        //get chapter and section information
+        List<CataSimpleInfoDTO> cataSimpleInfoDTOS = catalogueClient.batchQueryCatalogue(chapterAndSectionIds);
+        if (CollUtils.isEmpty(cataSimpleInfoDTOS)) {
+            throw new BizIllegalException("章和节信息不存在");
+        }
+        Map<Long, String> cataInfoDTO = cataSimpleInfoDTOS.stream().collect(Collectors.toMap(CataSimpleInfoDTO::getId, c -> c.getName()));
+
+        //封装vo
+        List<QuestionAdminVO> voList = new ArrayList<>();
+        for (InteractionQuestion record : records) {
+            QuestionAdminVO questionAdminVO = BeanUtils.copyBean(record, QuestionAdminVO.class);
+            UserDTO userDTO = userDTOMap.get(record.getUserId());
+            if (userDTO != null) {
+                questionAdminVO.setUserName(userDTO.getName());
+            }
+            CourseSimpleInfoDTO cinfoDTO = cInfoMap.get(record.getCourseId());
+            if (cinfoDTO != null) {
+                questionAdminVO.setCourseName(cinfoDTO.getName());
+
+                //设置课程的三级分类
+                String categoryNames = categoryCache.getCategoryNames(cinfoDTO.getCategoryIds());
+                questionAdminVO.setCategoryName(categoryNames);
+            }
+            questionAdminVO.setChapterName(cataInfoDTO.get(record.getChapterId()));
+            questionAdminVO.setSectionName(cataInfoDTO.get(record.getSectionId()));
+
+            voList.add(questionAdminVO);
+        }
+
+        return PageDTO.of(page, voList);
+    }
 
 }
-
-
-
-

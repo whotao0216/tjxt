@@ -49,12 +49,12 @@ public class InteractionQuestionController {
         return questionService.queryQuestionPage(query);
     }
 
-//    @ApiOperation("根据id查询互动问题")
-//    @GetMapping("{id}")
-//    public QuestionVO queryQuestionById(@PathVariable("id") Long id) {
-//        return questionService.queryQuestionById(id);
-//    }
-//
+    @ApiOperation("根据id查询互动问题")
+    @GetMapping("/{id}")
+    public QuestionVO queryQuestionById(@PathVariable("id") Long id) {
+        return questionService.queryQuestionById(id);
+    }
+
 //    @ApiOperation("根据id删除当前用户问题")
 //    @DeleteMapping("/{id}")
 //    public void deleteQuestion(
