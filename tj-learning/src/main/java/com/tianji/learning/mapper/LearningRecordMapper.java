@@ -2,6 +2,7 @@ package com.tianji.learning.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.tianji.learning.domain.po.LearningRecord;
+import org.apache.ibatis.annotations.Mapper;
 
 /**
  * @author lyh
@@ -9,6 +10,7 @@ import com.tianji.learning.domain.po.LearningRecord;
  * @createDate 2024-04-07 17:22:16
  * @Entity com.tianji.learning.domain.po.LearningRecord
  */
+@Mapper
 public interface LearningRecordMapper extends BaseMapper<LearningRecord> {
 
 }

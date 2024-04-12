@@ -2,6 +2,7 @@ package com.tianji.learning.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.tianji.learning.domain.po.InteractionReply;
+import org.apache.ibatis.annotations.Mapper;
 
 /**
  * @author lyh
@@ -9,6 +10,7 @@ import com.tianji.learning.domain.po.InteractionReply;
  * @createDate 2024-04-09 21:27:39
  * @Entity com.tianji.learning.domain.po.InteractionReply
  */
+@Mapper
 public interface InteractionReplyMapper extends BaseMapper<InteractionReply> {
 
 }
