@@ -15,10 +15,4 @@
         <result property="finishTime" column="finish_time" jdbcType="TIMESTAMP"/>
         <result property="updateTime" column="update_time" jdbcType="TIMESTAMP"/>
     </resultMap>
-
-    <sql id="Base_Column_List">
-        id,lesson_id,section_id,
-        user_id,moment,finished,
-        create_time,finish_time,update_time
-    </sql>
 </mapper>

@@ -24,4 +24,6 @@ public class PointsRecordController {
     public List<PointsStatisticsVO> queryMyTodayPoints() {
         return pointsRecordService.queryMyTodayPoints();
     }
+
+
 }

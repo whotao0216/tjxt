@@ -2,6 +2,8 @@ package com.tianji.learning.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tianji.learning.domain.po.PointsBoard;
+import com.tianji.learning.domain.query.PointsBoardQuery;
+import com.tianji.learning.domain.vo.PointsBoardVO;
 
 /**
  * @author lyh
@@ -10,4 +12,5 @@ import com.tianji.learning.domain.po.PointsBoard;
  */
 public interface IPointsBoardService extends IService<PointsBoard> {
 
+    PointsBoardVO queryPointsBoard(PointsBoardQuery query);
 }

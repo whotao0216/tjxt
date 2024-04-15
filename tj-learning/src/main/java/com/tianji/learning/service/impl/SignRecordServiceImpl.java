@@ -1,10 +1,13 @@
 package com.tianji.learning.service.impl;
 
+import com.tianji.common.autoconfigure.mq.RabbitMqHelper;
+import com.tianji.common.constants.MqConstants;
 import com.tianji.common.exceptions.BizIllegalException;
 import com.tianji.common.utils.CollUtils;
 import com.tianji.common.utils.UserContext;
 import com.tianji.learning.constants.RedisConstants;
 import com.tianji.learning.domain.vo.SignResultVO;
+import com.tianji.learning.mq.msg.SignInMessage;
 import com.tianji.learning.service.ISignRecordService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.connection.BitFieldSubCommands;
@@ -12,6 +15,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -19,7 +23,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SignRecordServiceImpl implements ISignRecordService {
     private final StringRedisTemplate redisTemplate;
-    //private final RabbitMqHelper mqHelper;
+    private final RabbitMqHelper mqHelper;
 
     @Override
     public SignResultVO addSignRecord() {
@@ -50,16 +54,41 @@ public class SignRecordServiceImpl implements ISignRecordService {
                 break;
         }
         //保存积分 发消息到mq
-//        mqHelper.send(
-//                MqConstants.Exchange.LEARNING_EXCHANGE,
-//                MqConstants.Key.SIGN_IN,
-//                SignInMessage.of(userId, rewardPoints + 1)
-//        );
+        mqHelper.send(
+                MqConstants.Exchange.LEARNING_EXCHANGE,
+                MqConstants.Key.SIGN_IN,
+                SignInMessage.of(userId, rewardPoints + 1)
+        );
         //封装vo
         SignResultVO vo = new SignResultVO();
         vo.setSignDays(days);
         vo.setRewardPoints(rewardPoints);
         return vo;
+    }
+
+    @Override
+    public Byte[] querySignRecord() {
+        //获取用户id
+        Long userId = UserContext.getUser();
+        //拼接key
+        LocalDateTime now = LocalDateTime.now();
+        String format = now.format(DateTimeFormatter.ofPattern(":yyyyMM"));
+        String key = RedisConstants.SIGN_RECORD_KEY_PREFIX + userId.toString() + format;
+        //从Redis获取签到记录
+        int dayOfMonth = now.getDayOfMonth();
+        List<Long> bitField = redisTemplate.opsForValue().bitField(key,
+                BitFieldSubCommands.create().get(BitFieldSubCommands.BitFieldType.unsigned(dayOfMonth)).valueAt(0));
+        if (CollUtils.isEmpty(bitField)) {
+            return new Byte[0];
+        }
+        Long num = bitField.get(0);
+        int offset = dayOfMonth - 1;
+        Byte[] bytes = new Byte[dayOfMonth];
+        while (offset >= 0) {
+            bytes[offset--] = (byte) (num & 1);
+            num >>>= 1;
+        }
+        return bytes;
     }
 
     private int countSignDays(String key, int dayOfMonth) {

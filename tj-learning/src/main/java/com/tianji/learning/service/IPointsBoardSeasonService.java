@@ -2,6 +2,9 @@ package com.tianji.learning.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tianji.learning.domain.po.PointsBoardSeason;
+import com.tianji.learning.domain.vo.PointsBoardSeasonVO;
+
+import java.util.List;
 
 /**
  * @author lyh
@@ -10,4 +13,7 @@ import com.tianji.learning.domain.po.PointsBoardSeason;
  */
 public interface IPointsBoardSeasonService extends IService<PointsBoardSeason> {
 
+    List<PointsBoardSeasonVO> querySeasons();
+
+    void createPointsBoardLatestTable(Integer id);
 }

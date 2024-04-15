@@ -18,4 +18,5 @@ public interface IPointsRecordService extends IService<PointsRecord> {
     void addPointRecord(SignInMessage msg, PointsRecordType sign);
 
     List<PointsStatisticsVO> queryMyTodayPoints();
+
 }
